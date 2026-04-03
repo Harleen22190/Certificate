@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/trainingrequest/db" VERSION="2026040300" COMMENT="Training Request DB">
+
+    <TABLES>
+        <TABLE NAME="training_requests" COMMENT="Stores training requests">
+
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="User ID"/>
+                
+                <FIELD NAME="title" TYPE="text" NOTNULL="true" COMMENT="Training title"/>
+                
+                <FIELD NAME="description" TYPE="text" NOTNULL="false" COMMENT="Training description"/>
+                
+                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" COMMENT="Status of request"/>
+                
+                <FIELD NAME="facultyid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Assigned faculty"/>
+                
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Time created"/>
+            </FIELDS>
+
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+            </KEYS>
+
+        </TABLE>
+    </TABLES>
+
+</XMLDB>
