@@ -5,7 +5,7 @@ if ($hassiteconfig) {
 
     $ADMIN->add('localplugins', new admin_externalpage(
         'local_trainingrequest',
-        'Training Request',
+        get_string('pluginname', 'local_trainingrequest'),
         new moodle_url('/local/trainingrequest/index.php')
     ));
 }
