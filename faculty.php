@@ -2,60 +2,199 @@
 require('../../config.php');
 require_login();
 
+$context = context_system::instance();
+
+require_capability('local/trainingrequest:manage', $context);
+
 global $DB, $USER, $PAGE, $OUTPUT;
 
 $PAGE->set_url('/local/trainingrequest/faculty.php');
 $PAGE->set_title('Faculty Panel');
 $PAGE->set_heading('Faculty Panel');
 
+$PAGE->requires->css('/local/trainingrequest/styles.css');
+if (($approveid = optional_param('approve', 0, PARAM_INT)) && confirm_sesskey()) {
+
+    if ($record = $DB->get_record('training_requests', [
+        'id' => $approveid,
+        'facultyid' => $USER->id
+    ])) {
+
+        if ($record->status === 'under_review') {
+
+            $remarks = optional_param('remarks', '', PARAM_TEXT);
+
+            $record->status = 'approved';
+            $record->remarks = $remarks;
+            $record->approvedby = $USER->id;
+            $record->timeapproved = time();
+            $record->timemodified = time();
+
+            $DB->update_record('training_requests', $record);
+
+            local_trainingrequest_notify($record->userid, '✅ Your request has been approved.');
+        }
+    }
+
+    redirect(new moodle_url('/local/trainingrequest/faculty.php'));
+}
+
+if (($rejectid = optional_param('reject', 0, PARAM_INT)) && confirm_sesskey()) {
+
+    if ($record = $DB->get_record('training_requests', [
+        'id' => $rejectid,
+        'facultyid' => $USER->id
+    ])) {
+
+        if ($record->status === 'under_review') {
+
+            $remarks = optional_param('remarks', '', PARAM_TEXT);
+
+            $record->status = 'rejected';
+            $record->remarks = $remarks;
+            $record->timemodified = time();
+
+            $DB->update_record('training_requests', $record);
+
+            local_trainingrequest_notify($record->userid, '❌ Your request has been rejected.');
+        }
+    }
+
+    redirect(new moodle_url('/local/trainingrequest/faculty.php'));
+}
+
+$requests = $DB->get_records('training_requests', [
+    'facultyid' => $USER->id
+], 'timecreated DESC');
+
+$pending = $DB->count_records('training_requests', [
+    'facultyid' => $USER->id,
+    'status' => 'under_review'
+]);
+
+$approved = $DB->count_records('training_requests', [
+    'facultyid' => $USER->id,
+    'status' => 'approved'
+]);
+
+$rejected = $DB->count_records('training_requests', [
+    'facultyid' => $USER->id,
+    'status' => 'rejected'
+]);
+
 echo $OUTPUT->header();
 
-echo "<h2>Assigned Training Requests</h2>";
+echo "<div class='container mt-4'>";
+echo "<h2 class='mb-4'>Faculty Dashboard</h2>";
+echo "<div class='row mb-4'>";
 
-// Get requests assigned to this faculty
-$records = $DB->get_records('training_requests', ['facultyid' => $USER->id]);
+echo "<div class='col-md-4'>
+        <div class='card p-3 text-center shadow-sm'>
+            <h5>Under Review</h5>
+            <h3 class='text-warning'>{$pending}</h3>
+        </div>
+      </div>";
 
-if (empty($records)) {
-    echo "<p>No requests assigned to you.</p>";
+echo "<div class='col-md-4'>
+        <div class='card p-3 text-center shadow-sm'>
+            <h5>Approved</h5>
+            <h3 class='text-success'>{$approved}</h3>
+        </div>
+      </div>";
+
+echo "<div class='col-md-4'>
+        <div class='card p-3 text-center shadow-sm'>
+            <h5>Rejected</h5>
+            <h3 class='text-danger'>{$rejected}</h3>
+        </div>
+      </div>";
+
+echo "</div>";
+
+if (empty($requests)) {
+
+    echo "<div class='alert alert-info text-center'>
+            No training requests assigned to you.
+          </div>";
+
 } else {
-    foreach ($records as $r) {
-        echo "<div style='border:1px solid #ccc; padding:10px; margin:10px;'>";
-        echo "<b>Title:</b> {$r->title}<br>";
-        echo "<b>Description:</b> " . ($r->description ? $r->description : 'N/A') . "<br>";
-        echo "<b>Status:</b> {$r->status}<br>";
-        echo "<b>Requested by:</b> " . $DB->get_field('user', 'username', ['id' => $r->userid]) . "<br>";
-        
-        // Form to update status
-        echo "<form method='post' style='margin-top:10px;'>";
-        echo "<input type='hidden' name='requestid' value='{$r->id}'>";
-        echo "<label for='status_{$r->id}'>Update Status:</label> ";
-        echo "<select name='status' id='status_{$r->id}'>";
-        echo "<option value='pending'" . ($r->status == 'pending' ? ' selected' : '') . ">Pending</option>";
-        echo "<option value='approved'" . ($r->status == 'approved' ? ' selected' : '') . ">Approved</option>";
-        echo "<option value='rejected'" . ($r->status == 'rejected' ? ' selected' : '') . ">Rejected</option>";
-        echo "</select> ";
-        echo "<button type='submit'>Update</button>";
-        echo "</form>";
-        
-        echo "</div>";
+
+    echo "<div class='table-responsive'>";
+    echo "<table class='table table-bordered table-hover align-middle'>";
+
+    echo "<thead class='table-dark'>
+            <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th>Action</th>
+            </tr>
+          </thead><tbody>";
+
+    foreach ($requests as $r) {
+        $student = $DB->get_record('user', ['id' => $r->userid]);
+        switch ($r->status) {
+            case 'under_review':
+                $badge = 'warning';
+                break;
+            case 'approved':
+                $badge = 'success';
+                break;
+            case 'rejected':
+                $badge = 'danger';
+                break;
+            default:
+                $badge = 'secondary';
+        }
+
+        echo "<tr>";
+
+        echo "<td>" . fullname($student) . "</td>";
+        echo "<td>" . format_string($r->title) . "</td>";
+
+        echo "<td>
+                <span class='badge bg-{$badge}'>
+                    " . ucfirst(str_replace('_',' ', $r->status)) . "
+                </span>
+              </td>";
+
+        echo "<td>" . (!empty($r->remarks) ? s($r->remarks) : '-') . "</td>";
+
+        echo "<td>";
+
+        if ($r->status === 'under_review') {
+
+            echo "<form method='post' class='d-flex gap-2'>";
+            echo "<input type='hidden' name='sesskey' value='" . sesskey() . "'>";
+
+            echo "<input type='text' name='remarks' placeholder='Remarks...' class='form-control form-control-sm'>";
+
+            echo "<button name='approve' value='{$r->id}' 
+                        class='btn btn-success btn-sm'>
+                        Approve
+                  </button>";
+
+            echo "<button name='reject' value='{$r->id}' 
+                        class='btn btn-danger btn-sm'>
+                        Reject
+                  </button>";
+
+            echo "</form>";
+
+        } else {
+
+            echo "<span class='text-muted'>Action completed</span>";
+        }
+
+        echo "</td>";
+        echo "</tr>";
     }
+
+    echo "</tbody></table>";
+    echo "</div>";
 }
 
-// Handle status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['requestid']) && isset($_POST['status'])) {
-    $requestid = $_POST['requestid'];
-    $newstatus = $_POST['status'];
-    
-    // Verify the request is assigned to this faculty
-    $request = $DB->get_record('training_requests', ['id' => $requestid, 'facultyid' => $USER->id]);
-    if ($request) {
-        $DB->update_record('training_requests', (object)['id' => $requestid, 'status' => $newstatus]);
-        echo "<p style='color:green;'>Status updated successfully!</p>";
-        // Redirect to refresh the page
-        redirect($PAGE->url);
-    } else {
-        echo "<p style='color:red;'>Error: Request not found or not assigned to you.</p>";
-    }
-}
+echo "</div>";
 
 echo $OUTPUT->footer();
