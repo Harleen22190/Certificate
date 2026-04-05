@@ -1,0 +1,26 @@
+.container {
+    max-width: 1100px;
+}
+
+.card {
+    border-radius: 12px;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+}
+
+.btn {
+    border-radius: 8px;
+}
+
+.badge {
+    font-size: 13px;
+    padding: 6px 10px;
+}
+
+h2 {
+    font-weight: bold;
+}
